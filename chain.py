@@ -6,6 +6,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 
+from schemas import AnalisisTecnico
+
 # --- Paso 2: configuración -------------------------------------------------
 
 # Carga las variables del archivo .env (OPENAI_API_KEY, GOOGLE_API_KEY, ...)
@@ -60,3 +62,11 @@ prompt = ChatPromptTemplate.from_messages(
         ("human", "Texto a analizar:\n{text}"),
     ]
 )
+
+# --- Paso 4: cadenas LCEL (una por proveedor) -------------------------------
+
+# with_structured_output(Schema) hace que el modelo devuelva directamente una
+# instancia validada de AnalisisTecnico (no hace falta un parser aparte).
+# El operador | compone: prompt -> modelo -> salida estructurada.
+openai_chain = prompt | openai_model.with_structured_output(AnalisisTecnico)
+gemini_chain = prompt | gemini_model.with_structured_output(AnalisisTecnico)
