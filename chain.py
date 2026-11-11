@@ -2,6 +2,7 @@ import logging
 import os
 
 from dotenv import load_dotenv
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 
@@ -35,4 +36,27 @@ logger.info(
     "Clientes configurados | principal=%s | respaldo=%s",
     openai_model.model_name,
     gemini_model.model,
+)
+
+# --- Paso 3: prompt template -----------------------------------------------
+
+# ChatPromptTemplate gestiona las variables de entrada ({text}); no usamos
+# f-strings, así el prompt sigue siendo modular y reutilizable por ambos modelos.
+prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            "Eres un ingeniero de software senior especializado en analizar "
+            "textos técnicos (descripciones de arquitectura, logs de error, "
+            "incidentes). Extrae únicamente información presente en el texto.\n"
+            "Reglas:\n"
+            "- tecnologias: lista de tecnologías, lenguajes, frameworks o "
+            "servicios mencionados, con nombres cortos (máximo 3 palabras cada "
+            "uno). Si el texto no menciona ninguna de forma explícita, "
+            "incluye la más probable según el contexto.\n"
+            "- nivel_de_criticidad: exactamente uno de 'baja', 'media' o 'alta'.\n"
+            "- resumen_tecnico: una o dos frases en español, claras y concisas.",
+        ),
+        ("human", "Texto a analizar:\n{text}"),
+    ]
 )
