@@ -30,9 +30,13 @@ class AnalisisTecnico(BaseModel):
     @field_validator("tecnologias")
     @classmethod
     def validar_tecnologias(cls, values: List[str]) -> List[str]:
-        """Cada tecnología debe tener entre 1 y 3 palabras."""
+        """Cada tecnología debe tener entre 1 y 3 palabras.
+
+        La etiqueta '[probable]' (tecnología inferida, no mencionada en el
+        texto) no cuenta como palabra.
+        """
         for value in values:
-            words = value.strip().split()
+            words = value.replace("[probable]", "").strip().split()
             if not (1 <= len(words) <= 3):
                 raise ValueError(f"'{value}' debe contener entre 1 y 3 palabras")
         return values

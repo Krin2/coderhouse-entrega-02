@@ -63,7 +63,9 @@ prompt = ChatPromptTemplate.from_messages(
             "- tecnologias: lista de tecnologías, lenguajes, frameworks o "
             "servicios mencionados, con nombres cortos (máximo 3 palabras cada "
             "uno). Si el texto no menciona ninguna de forma explícita, "
-            "incluye la más probable según el contexto.\n"
+            "incluye la más probable según el contexto y agrega ' [probable]' "
+            "al final de su nombre (ej. 'Redis [probable]'). Las tecnologías "
+            "mencionadas explícitamente NO llevan esa etiqueta.\n"
             "- nivel_de_criticidad: exactamente uno de 'baja', 'media' o 'alta'.\n"
             "- resumen_tecnico: una o dos frases en español, claras y concisas.",
         ),
