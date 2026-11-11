@@ -1,50 +1,54 @@
 # Pre-entrega 2: Pipeline de procesamiento validado
 
-## Qué construir
-Debes desarrollar un Pipeline de Extracción de Entidades Técnicas. El sistema debe recibir un párrafo de texto sin procesar (por ejemplo, una descripción de arquitectura de software o un log de error) y devolver un objeto validado.
+Pipeline que recibe un texto técnico sin procesar (descripción de arquitectura, log de error, etc.) y devuelve un objeto **validado con Pydantic** con las tecnologías mencionadas, el nivel de criticidad y un resumen técnico.
 
-## Los componentes requeridos:
-- **Esquema Pydantic**: Un modelo que defina campos como:
-  - tecnologias (lista de strings),
-  - nivel_de_criticidad (enum: baja, media, alta), y 
-  - resumen_tecnico (string).
-- **Prompt Template**: Un template modular que acepte el texto de entrada y las instrucciones de formato.
-- **Cadena LCEL**: Una composición que una el ***Prompt + LLM + Output Parser***.
-- **Lógica de Resiliencia**: Configuración de al menos un reintento automático si el LLM devuelve un JSON mal formado o incompleto.
+## Estructura
 
-## Pasos sugeridos
-1. **Define tu Contrato**: Crea la clase Pydantic. Piensa en qué restricciones quieres poner (ej. que la lista de tecnologías no esté vacía).
-2. **Prepara el Parser**: Utiliza `PydanticOutputParser` o el método `.with_structured_output()` de LangChain (preferido para OpenAI/Anthropic).
-3. **Ensambla la Cadena**:
+| Archivo | Contenido |
+|---|---|
+| `schemas.py` | Modelo Pydantic `AnalisisTecnico` (el contrato de salida) |
+| `chain.py` | Clientes LLM, `ChatPromptTemplate`, cadena LCEL, reintentos, fallback y `process_text()` |
+| `main.py` | Mini-script de prueba |
+| `.env.example` | Plantilla de variables de entorno |
 
-```python
-  chain = prompt | model.with_structured_output(TuEsquema)
+## Instalación
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1        # Git Bash: source .venv/Scripts/activate
+pip install -r requirements.txt
+copy .env.example .env              # y completar las claves reales
 ```
 
-4. **Añade Resiliencia**: Envuelve la llamada con una estrategia de reintento (``.with_retry()``).
-5. **Prueba de Estrés**: Pasa un texto ambiguo y verifica si el validador lanza excepciones o si el modelo se recupera.
+Variables de `.env`:
 
-## Errores comunes a evitar
-- **Ignorar el finish_reason**: A veces el LLM corta la respuesta por falta de tokens. Tu pipeline debe detectar si el objeto está incompleto antes de intentar transformarlo.
-- **Hardcoding de Prompts**: Evita las *F-strings* de Python dentro de la cadena. Usa ``ChatPromptTemplate`` para mantener la modularidad y permitir que LangChain gestione las variables de entrada.
+| Variable | Descripción |
+|---|---|
+| `OPENAI_API_KEY` | Clave de OpenAI (modelo principal) |
+| `OPENAI_MODEL` | Modelo de OpenAI (por defecto `gpt-4o-mini`) |
+| `GOOGLE_API_KEY` | Clave de Gemini (modelo de respaldo) |
+| `GEMINI_MODEL` | Modelo de Gemini (por defecto `gemini-3.8-flash`) |
 
-## Qué entregás y en qué formato
+> `.env` está en `.gitignore`: nunca se sube al repositorio.
 
-- **Tipo**: *Código* — un repositorio de GitHub.
-- **Artefacto concreto**: *repo* con `schemas.py` (modelo Pydantic) y `chain.py` (cadena LCEL con `.with_structured_output()` y reintento `.with_retry()`).
-- **Qué NO hace falta**: no hay PDF ni informe; el ejemplo de salida JSON y las instrucciones van en el `README.md`.
+## Uso
 
-## Entregable
+```powershell
+python main.py                     # ejecuta los casos de prueba
+python main.py --probar-fallback   # invalida la clave de OpenAI para ver el fallback a Gemini
+```
 
-1. Crea un archivo ``schemas.py`` donde definas la estructura de salida deseada usando Pydantic.
-2. En ``chain.py``, configura un cliente de **ChatOpenAI** o **ChatAnthropic** (reutilizando la lógica del Módulo 1).
-3. Crea un **ChatPromptTemplate** que instruya al modelo para extraer información técnica de un texto.
-4. Construye la cadena usando LCEL:`` prompt | model.with_structured_output(Schema)``.
-5. Implementa una función asíncrona **process_text**(text: str) que ejecute la cadena usando ``.ainvoke()``.
-6. Asegúrate de incluir logs adecuados para observar el proceso de validación y posibles reintentos.
+Desde código:
 
-## Ejemplo de la salida esperada
-Dado un texto de entrada (ej. un log de error o descripción de arquitectura), tu pipeline debe devolver un objeto validado como este:
+```python
+import asyncio
+from chain import process_text
+
+resultado = asyncio.run(process_text("API en FastAPI con Redis y PostgreSQL..."))
+print(resultado.model_dump_json(indent=2))
+```
+
+## Ejemplo de salida
 
 ```json
 {
@@ -53,9 +57,24 @@ Dado un texto de entrada (ej. un log de error o descripción de arquitectura), t
   "resumen_tecnico": "API con caché en Redis y persistencia en PostgreSQL; cuello de botella en conexiones concurrentes."
 }
 ```
-## Checklist de entrega
--  Repositorio de GitHub con `schemas.py` (modelo Pydantic) y `chain.py` (cadena LCEL).
-- Cadena compuesta con LCEL: `prompt | model.with_structured_output(Schema)`.
-- Lógica de reintento (`.with_retry()`) ante JSON mal formado o incompleto.
-- Función asíncrona `process_text()` con `.ainvoke()` y logs de validación.
-- Mini-script de prueba que ejecute un ejemplo.
+
+## Cómo funciona
+
+1. **Contrato (`schemas.py`)**: `tecnologias` (lista no vacía, cada elemento de 1 a 3 palabras), `nivel_de_criticidad` (enum `baja | media | alta`) y `resumen_tecnico` (texto no vacío).
+2. **Prompt (`ChatPromptTemplate`)**: la variable `{text}` la gestiona LangChain; no hay f-strings.
+3. **Cadena LCEL**: `prompt | model.with_structured_output(AnalisisTecnico)`, una por proveedor.
+4. **Resiliencia**:
+   - OpenAI se intenta **2 veces** con `.with_retry()` ante salida inválida (`OutputParserException`, `ValidationError`).
+   - Si falla, `.with_fallbacks()` pasa a **Gemini**, también con **2 intentos**.
+   - Máximo: 4 llamadas por texto.
+   - Los clientes tienen `timeout=30` y `max_retries=1` para que una caída del proveedor no deje la ejecución esperando.
+5. **`process_text(text)`**: función asíncrona que usa `.ainvoke()` y registra con logs el modelo llamado, los reintentos y el resultado.
+
+### Sobre `finish_reason`
+
+Si el modelo corta la respuesta por falta de tokens, `with_structured_output` recibe un JSON incompleto, que falla en el parser o en la validación Pydantic. Ese caso activa el reintento y, si persiste, el fallback.
+
+## Prueba de estrés y del fallback
+
+- **Texto ambiguo**: `main.py` incluye "Se cayó algo en el servidor y no anda nada." para observar cómo responde el modelo cuando el texto casi no trae información.
+- **Fallback**: `python main.py --probar-fallback` fuerza un error 401 en OpenAI. En los logs debe verse `Llamando al modelo: gpt-4o-mini`, el error, y luego `Llamando al modelo: <gemini>`.
