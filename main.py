@@ -27,6 +27,16 @@ EJEMPLOS = {
         "Connection refused to mysql-primary:3306. Todos los pagos están "
         "fallando en producción desde hace 20 minutos."
     ),
+    "Criticidad baja": (
+        "El panel de administración, hecho con React, muestra en la consola un "
+        "warning de deprecación de la librería de gráficos Chart.js. No afecta "
+        "a los usuarios ni a la funcionalidad; se actualizará en el próximo sprint."
+    ),
+    "Criticidad media": (
+        "El servicio de notificaciones en Node.js con RabbitMQ acumula mensajes "
+        "en cola durante los picos de la tarde, y los correos llegan con hasta "
+        "10 minutos de retraso. Los pedidos se siguen procesando con normalidad."
+    ),
     "Prueba de estrés (texto ambiguo)": "Se cayó algo en el servidor y no anda nada.",
 }
 
