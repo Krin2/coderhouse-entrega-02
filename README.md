@@ -4,7 +4,10 @@
 Debes desarrollar un Pipeline de Extracción de Entidades Técnicas. El sistema debe recibir un párrafo de texto sin procesar (por ejemplo, una descripción de arquitectura de software o un log de error) y devolver un objeto validado.
 
 ## Los componentes requeridos:
-- **Esquema Pydantic**: Un modelo que defina campos como tecnologias (lista de strings), nivel_de_criticidad (enum: baja, media, alta), y resumen_tecnico (string).
+- **Esquema Pydantic**: Un modelo que defina campos como:
+  - tecnologias (lista de strings),
+  - nivel_de_criticidad (enum: baja, media, alta), y 
+  - resumen_tecnico (string).
 - **Prompt Template**: Un template modular que acepte el texto de entrada y las instrucciones de formato.
 - **Cadena LCEL**: Una composición que una el ***Prompt + LLM + Output Parser***.
 - **Lógica de Resiliencia**: Configuración de al menos un reintento automático si el LLM devuelve un JSON mal formado o incompleto.
