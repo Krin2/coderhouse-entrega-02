@@ -61,7 +61,7 @@ print(resultado.model_dump_json(indent=2))
 ## Cómo funciona
 
 1. **Contrato (`schemas.py`)**: `tecnologias` (lista no vacía, cada elemento de 1 a 3 palabras), `nivel_de_criticidad` (enum `baja | media | alta`) y `resumen_tecnico` (texto no vacío).
-2. **Prompt (`ChatPromptTemplate`)**: la variable `{text}` la gestiona LangChain; no hay f-strings.
+2. **Prompt (`ChatPromptTemplate`)**: la variable `{text}` la gestiona LangChain; no hay f-strings. Si el texto no menciona ninguna tecnología, el modelo incluye la más probable según el contexto y la marca con la etiqueta `[probable]` (por ejemplo `"Redis [probable]"`), para distinguirla de las mencionadas explícitamente. El validador ignora esa etiqueta al contar palabras.
 3. **Cadena LCEL**: `prompt | model.with_structured_output(AnalisisTecnico)`, una por proveedor.
 4. **Resiliencia**:
    - OpenAI se intenta **2 veces** con `.with_retry()` ante salida inválida (`OutputParserException`, `ValidationError`).
@@ -73,6 +73,18 @@ print(resultado.model_dump_json(indent=2))
 ### Sobre `finish_reason`
 
 Si el modelo corta la respuesta por falta de tokens, `with_structured_output` recibe un JSON incompleto, que falla en el parser o en la validación Pydantic. Ese caso activa el reintento y, si persiste, el fallback.
+
+## Casos de prueba (`main.py`)
+
+| Caso | Qué muestra |
+|---|---|
+| Arquitectura clara | FastAPI, Redis y PostgreSQL con cuello de botella en conexiones (criticidad esperada: alta) |
+| Log de error | Caída de `payments-service` por MySQL en producción (criticidad esperada: alta) |
+| Criticidad baja | Warning de deprecación de Chart.js en un panel de React, sin impacto en usuarios |
+| Criticidad media | Notificaciones con RabbitMQ y Node.js con retrasos de hasta 10 minutos, sin afectar los pedidos |
+| Texto ambiguo | Prueba de estrés con casi nada de información |
+
+La criticidad la decide el modelo, así que los valores "esperados" son orientativos.
 
 ## Prueba de estrés y del fallback
 
