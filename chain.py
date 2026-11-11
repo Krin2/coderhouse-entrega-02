@@ -2,9 +2,12 @@ import logging
 import os
 
 from dotenv import load_dotenv
+from langchain_core.exceptions import OutputParserException
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
+
+from pydantic import ValidationError
 
 from schemas import AnalisisTecnico
 
@@ -70,3 +73,26 @@ prompt = ChatPromptTemplate.from_messages(
 # El operador | compone: prompt -> modelo -> salida estructurada.
 openai_chain = prompt | openai_model.with_structured_output(AnalisisTecnico)
 gemini_chain = prompt | gemini_model.with_structured_output(AnalisisTecnico)
+
+# --- Paso 5: resiliencia (reintentos + fallback) ----------------------------
+
+# Solo reintentamos errores de "salida inválida": JSON mal formado (parser) o
+# datos incompletos/incorrectos (validación Pydantic). Un error de autenticación
+# fallaría igual en cada intento, así que no tiene sentido reintentarlo.
+RETRY_ERRORS = (OutputParserException, ValidationError)
+
+# 1) Principal: OpenAI con hasta 2 intentos.
+# 2) Si agota los intentos (o falla por otro motivo, p. ej. API caída),
+#    with_fallbacks pasa a Gemini, también con hasta 2 intentos.
+# Total máximo: 4 llamadas.
+chain = openai_chain.with_retry(
+    retry_if_exception_type=RETRY_ERRORS,
+    stop_after_attempt=2,
+).with_fallbacks(
+    [
+        gemini_chain.with_retry(
+            retry_if_exception_type=RETRY_ERRORS,
+            stop_after_attempt=2,
+        )
+    ]
+)
