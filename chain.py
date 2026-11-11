@@ -2,6 +2,7 @@ import logging
 import os
 
 from dotenv import load_dotenv
+from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.exceptions import OutputParserException
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -96,3 +97,46 @@ chain = openai_chain.with_retry(
         )
     ]
 )
+
+# --- Paso 6: logs y función asíncrona process_text --------------------------
+
+class PipelineLogger(BaseCallbackHandler):
+    """Callback que deja en los logs qué modelo se llama, los reintentos y los errores."""
+
+    def on_chat_model_start(self, serialized, messages, **kwargs):
+        modelo = (kwargs.get("metadata") or {}).get("ls_model_name", "desconocido")
+        logger.info("Llamando al modelo: %s", modelo)
+
+    def on_retry(self, retry_state, **kwargs):
+        error = retry_state.outcome.exception() if retry_state.outcome else None
+        logger.warning(
+            "Reintento tras intento #%s | %s: %s",
+            retry_state.attempt_number,
+            type(error).__name__,
+            error,
+        )
+
+    def on_chain_error(self, error, **kwargs):
+        logger.error("Fallo en la cadena: %s: %s", type(error).__name__, error)
+
+
+async def process_text(text: str) -> AnalisisTecnico:
+    """Extrae entidades técnicas de `text` y devuelve un AnalisisTecnico validado.
+
+    Lanza una excepción si fallan todos los intentos (OpenAI x2 y Gemini x2).
+    """
+    if not text or not text.strip():
+        raise ValueError("El texto de entrada está vacío")
+
+    logger.info("Procesando texto (%d caracteres)", len(text))
+    try:
+        resultado = await chain.ainvoke(
+            {"text": text},
+            config={"callbacks": [PipelineLogger()]},
+        )
+    except Exception:
+        logger.exception("No se pudo obtener una salida válida tras todos los intentos")
+        raise
+
+    logger.info("Validación OK | %s", resultado.model_dump_json())
+    return resultado
