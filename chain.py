@@ -30,12 +30,16 @@ logger = logging.getLogger("pipeline")
 openai_model = ChatOpenAI(
     model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
     temperature=0,
+    timeout=30,  # segundos máximos por llamada (evita esperas indefinidas)
+    max_retries=1,  # reintentos internos del cliente ante errores de red/5xx
 )
 
 # Modelo de respaldo (fallback): Gemini. Se usará si OpenAI falla tras sus reintentos.
 gemini_model = ChatGoogleGenerativeAI(
-    model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
+    model=os.getenv("GEMINI_MODEL", "gemini-3.8-flash"),
     temperature=0,
+    timeout=30,  # por defecto es None (sin límite)
+    max_retries=1,  # por defecto son 6, con espera creciente: parece "colgado"
 )
 
 logger.info(
