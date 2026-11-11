@@ -14,19 +14,19 @@ Debes desarrollar un Pipeline de Extracción de Entidades Técnicas. El sistema 
 
 ## Pasos sugeridos
 1. **Define tu Contrato**: Crea la clase Pydantic. Piensa en qué restricciones quieres poner (ej. que la lista de tecnologías no esté vacía).
-2. **Prepara el Parser**: Utiliza PydanticOutputParser o el método .with_structured_output() de LangChain (preferido para OpenAI/Anthropic).
+2. **Prepara el Parser**: Utiliza `PydanticOutputParser` o el método `.with_structured_output()` de LangChain (preferido para OpenAI/Anthropic).
 3. **Ensambla la Cadena**:
 
 ```python
   chain = prompt | model.with_structured_output(TuEsquema)
 ```
 
-4. **Añade Resiliencia**: Envuelve la llamada con una estrategia de reintento (.with_retry()).
+4. **Añade Resiliencia**: Envuelve la llamada con una estrategia de reintento (``.with_retry()``).
 5. **Prueba de Estrés**: Pasa un texto ambiguo y verifica si el validador lanza excepciones o si el modelo se recupera.
 
 ## Errores comunes a evitar
 - **Ignorar el finish_reason**: A veces el LLM corta la respuesta por falta de tokens. Tu pipeline debe detectar si el objeto está incompleto antes de intentar transformarlo.
-- **Hardcoding de Prompts**: Evita las F-strings de Python dentro de la cadena. Usa ChatPromptTemplate para mantener la modularidad y permitir que LangChain gestione las variables de entrada.
+- **Hardcoding de Prompts**: Evita las *F-strings* de Python dentro de la cadena. Usa ``ChatPromptTemplate`` para mantener la modularidad y permitir que LangChain gestione las variables de entrada.
 
 ## Qué entregás y en qué formato
 
@@ -54,8 +54,8 @@ Dado un texto de entrada (ej. un log de error o descripción de arquitectura), t
 }
 ```
 ## Checklist de entrega
--  Repositorio de GitHub con schemas.py (modelo Pydantic) y chain.py (cadena LCEL).
-- Cadena compuesta con LCEL: prompt | model.with_structured_output(Schema).
-- Lógica de reintento (.with_retry()) ante JSON mal formado o incompleto.
-- Función asíncrona process_text() con .ainvoke() y logs de validación.
+-  Repositorio de GitHub con `schemas.py` (modelo Pydantic) y `chain.py` (cadena LCEL).
+- Cadena compuesta con LCEL: `prompt | model.with_structured_output(Schema)`.
+- Lógica de reintento (`.with_retry()`) ante JSON mal formado o incompleto.
+- Función asíncrona `process_text()` con `.ainvoke()` y logs de validación.
 - Mini-script de prueba que ejecute un ejemplo.
