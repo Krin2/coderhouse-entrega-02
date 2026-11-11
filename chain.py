@@ -109,6 +109,11 @@ chain = openai_chain.with_retry(
 class PipelineLogger(BaseCallbackHandler):
     """Callback que deja en los logs qué modelo se llama, los reintentos y los errores."""
 
+    def __init__(self):
+        # Un mismo error se propaga por varias capas de la cadena y dispararía
+        # on_chain_error varias veces; recordamos cuáles ya registramos.
+        self._errores_vistos: set[int] = set()
+
     def on_chat_model_start(self, serialized, messages, **kwargs):
         modelo = (kwargs.get("metadata") or {}).get("ls_model_name", "desconocido")
         logger.info("Llamando al modelo: %s", modelo)
@@ -123,6 +128,9 @@ class PipelineLogger(BaseCallbackHandler):
         )
 
     def on_chain_error(self, error, **kwargs):
+        if id(error) in self._errores_vistos:
+            return
+        self._errores_vistos.add(id(error))
         logger.error("Fallo en la cadena: %s: %s", type(error).__name__, error)
 
 
